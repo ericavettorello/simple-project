@@ -25,6 +25,40 @@ uvicorn main:app --reload --port 9000
 uvicorn main:app --reload --port 7000
 ```
 
+## Запуск с Docker
+
+**Важно:** Docker Desktop должен быть запущен перед выполнением команд.
+
+### Как запустить Docker Desktop на Windows:
+
+1. Найдите "Docker Desktop" в меню Пуск или на рабочем столе
+2. Запустите приложение Docker Desktop
+3. Дождитесь полной загрузки (иконка Docker в системном трее перестанет мигать)
+4. Проверьте статус Docker:
+
+```bash
+docker --version
+docker ps
+```
+
+Если команда `docker ps` выполняется без ошибок, Docker Desktop готов к работе.
+
+Соберите Docker образ (не забудьте точку в конце):
+
+```bash
+docker build -t server-time-api .
+```
+
+Запустите контейнер:
+
+```bash
+docker run -p 9000:9000 server-time-api
+```
+
+Сервер будет доступен по адресу: http://127.0.0.1:9000
+
+**Примечание:** Если вы видите ошибку `The system cannot find the file specified` или `dockerDesktopLinuxEngine`, убедитесь, что Docker Desktop запущен и работает.
+
 ## API Endpoints
 
 - `GET /` - Главная страница с информацией об API
