@@ -114,3 +114,28 @@ curl http://127.0.0.1:9000/date/formatted
 
 (Или используйте порт, на котором запущен сервер)
 
+## CI/CD с GitHub Actions
+
+Проект настроен для автоматической сборки и деплоя через GitHub Actions.
+
+### Workflow включает:
+
+1. **Build and Push** - автоматическая сборка Docker образа и публикация в GitHub Container Registry
+2. **Deploy** - автоматическое развертывание на удаленный сервер через SSH
+
+### Настройка:
+
+Для работы CI/CD необходимо настроить секреты в GitHub:
+- `SSH_HOST` - IP адрес или домен сервера
+- `SSH_USERNAME` - имя пользователя для SSH
+- `SSH_PRIVATE_KEY` - приватный SSH ключ
+- `SSH_PORT` - порт SSH (обычно 22)
+
+Подробные инструкции см. в [.github/workflows/README.md](.github/workflows/README.md)
+
+### Триггеры:
+
+Workflow запускается автоматически при:
+- Push в ветки `main` или `developing`
+- Ручной запуск через GitHub Actions UI
+
