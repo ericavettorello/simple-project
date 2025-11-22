@@ -102,11 +102,18 @@ jobs:
             # Используем полный путь к docker для надежности
             DOCKER_CMD=$(which docker || echo "/usr/bin/docker")
             
-            # Логинимся в GitHub Container Registry
-            echo "$GITHUB_TOKEN" | $DOCKER_CMD login "$REGISTRY" -u "$GITHUB_ACTOR" --password-stdin
-            
             # Определяем имя образа
             FULL_IMAGE_NAME="$REGISTRY/$IMAGE_NAME"
+            
+            # Отладочный вывод
+            echo "REGISTRY: $REGISTRY"
+            echo "IMAGE_NAME: $IMAGE_NAME"
+            echo "BRANCH_NAME: $BRANCH_NAME"
+            echo "FULL_IMAGE_NAME: $FULL_IMAGE_NAME"
+            echo "GITHUB_ACTOR: $GITHUB_ACTOR"
+            
+            # Логинимся в GitHub Container Registry
+            echo "$GITHUB_TOKEN" | $DOCKER_CMD login "$REGISTRY" -u "$GITHUB_ACTOR" --password-stdin
             
             # Останавливаем и удаляем старый контейнер (если существует)
             $DOCKER_CMD stop server-time-api || true
@@ -115,13 +122,18 @@ jobs:
             # Удаляем старый образ (опционально, для экономии места)
             $DOCKER_CMD image prune -f || true
             
-            # Скачиваем новый образ (пробуем сначала по имени ветки, затем latest)
-            $DOCKER_CMD pull ${FULL_IMAGE_NAME}:${BRANCH_NAME} || $DOCKER_CMD pull ${FULL_IMAGE_NAME}:latest
+            # Определяем тег образа (пробуем сначала по имени ветки, затем latest)
+            IMAGE_TAG="${BRANCH_NAME}"
+            if ! $DOCKER_CMD pull ${FULL_IMAGE_NAME}:${IMAGE_TAG} 2>/dev/null; then
+              echo "Образ с тегом ${IMAGE_TAG} не найден, пробуем latest"
+              IMAGE_TAG="latest"
+              $DOCKER_CMD pull ${FULL_IMAGE_NAME}:${IMAGE_TAG}
+            fi
             
             # Запускаем новый контейнер
             $DOCKER_CMD run -d \
               --name server-time-api \
               --restart unless-stopped \
               -p 9000:9000 \
-              ${FULL_IMAGE_NAME}:${BRANCH_NAME} || ${FULL_IMAGE_NAME}:latest
+              ${FULL_IMAGE_NAME}:${IMAGE_TAG}
 
