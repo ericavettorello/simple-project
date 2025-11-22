@@ -102,10 +102,19 @@ jobs:
             # Используем полный путь к docker для надежности
             DOCKER_CMD=$(which docker || echo "/usr/bin/docker")
             
+            # Проверяем переменные окружения
+            if [ -z "$REGISTRY" ] || [ -z "$IMAGE_NAME" ] || [ -z "$GITHUB_TOKEN" ] || [ -z "$GITHUB_ACTOR" ]; then
+              echo "Ошибка: не все переменные окружения установлены"
+              echo "REGISTRY: $REGISTRY"
+              echo "IMAGE_NAME: $IMAGE_NAME"
+              echo "GITHUB_ACTOR: $GITHUB_ACTOR"
+              exit 1
+            fi
+            
             # Определяем имя образа
             FULL_IMAGE_NAME="$REGISTRY/$IMAGE_NAME"
+            BRANCH_NAME="${BRANCH_NAME:-latest}"
             
-            # Отладочный вывод
             echo "REGISTRY: $REGISTRY"
             echo "IMAGE_NAME: $IMAGE_NAME"
             echo "BRANCH_NAME: $BRANCH_NAME"
@@ -113,7 +122,10 @@ jobs:
             echo "GITHUB_ACTOR: $GITHUB_ACTOR"
             
             # Логинимся в GitHub Container Registry
-            echo "$GITHUB_TOKEN" | $DOCKER_CMD login "$REGISTRY" -u "$GITHUB_ACTOR" --password-stdin
+            echo "$GITHUB_TOKEN" | $DOCKER_CMD login "$REGISTRY" -u "$GITHUB_ACTOR" --password-stdin || {
+              echo "Ошибка при логине в Docker registry"
+              exit 1
+            }
             
             # Останавливаем и удаляем старый контейнер (если существует)
             $DOCKER_CMD stop server-time-api || true
@@ -124,16 +136,28 @@ jobs:
             
             # Определяем тег образа (пробуем сначала по имени ветки, затем latest)
             IMAGE_TAG="${BRANCH_NAME}"
-            if ! $DOCKER_CMD pull ${FULL_IMAGE_NAME}:${IMAGE_TAG} 2>/dev/null; then
+            echo "Пробуем скачать образ: ${FULL_IMAGE_NAME}:${IMAGE_TAG}"
+            
+            if ! $DOCKER_CMD pull "${FULL_IMAGE_NAME}:${IMAGE_TAG}" 2>/dev/null; then
               echo "Образ с тегом ${IMAGE_TAG} не найден, пробуем latest"
               IMAGE_TAG="latest"
-              $DOCKER_CMD pull ${FULL_IMAGE_NAME}:${IMAGE_TAG}
+              if ! $DOCKER_CMD pull "${FULL_IMAGE_NAME}:${IMAGE_TAG}"; then
+                echo "Ошибка: не удалось скачать образ ${FULL_IMAGE_NAME}:${IMAGE_TAG}"
+                exit 1
+              fi
             fi
+            
+            echo "Образ успешно скачан: ${FULL_IMAGE_NAME}:${IMAGE_TAG}"
             
             # Запускаем новый контейнер
             $DOCKER_CMD run -d \
               --name server-time-api \
               --restart unless-stopped \
               -p 9000:9000 \
-              ${FULL_IMAGE_NAME}:${IMAGE_TAG}
+              "${FULL_IMAGE_NAME}:${IMAGE_TAG}" || {
+              echo "Ошибка при запуске контейнера"
+              exit 1
+            }
+            
+            echo "Контейнер успешно запущен!"
 
