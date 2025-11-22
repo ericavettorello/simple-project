@@ -91,24 +91,35 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
+            # Проверяем и устанавливаем Docker, если необходимо
+            if ! command -v docker &> /dev/null; then
+              echo "Docker не найден, устанавливаем..."
+              curl -fsSL https://get.docker.com -o get-docker.sh
+              sh get-docker.sh
+              rm get-docker.sh
+            fi
+            
+            # Используем полный путь к docker для надежности
+            DOCKER_CMD=$(which docker || echo "/usr/bin/docker")
+            
             # Логинимся в GitHub Container Registry
-            echo "$GITHUB_TOKEN" | docker login "$REGISTRY" -u "$GITHUB_ACTOR" --password-stdin
+            echo "$GITHUB_TOKEN" | $DOCKER_CMD login "$REGISTRY" -u "$GITHUB_ACTOR" --password-stdin
             
             # Определяем имя образа
             FULL_IMAGE_NAME="$REGISTRY/$IMAGE_NAME"
             
             # Останавливаем и удаляем старый контейнер (если существует)
-            docker stop server-time-api || true
-            docker rm server-time-api || true
+            $DOCKER_CMD stop server-time-api || true
+            $DOCKER_CMD rm server-time-api || true
             
             # Удаляем старый образ (опционально, для экономии места)
-            docker image prune -f || true
+            $DOCKER_CMD image prune -f || true
             
             # Скачиваем новый образ (пробуем сначала по имени ветки, затем latest)
-            docker pull ${FULL_IMAGE_NAME}:${BRANCH_NAME} || docker pull ${FULL_IMAGE_NAME}:latest
+            $DOCKER_CMD pull ${FULL_IMAGE_NAME}:${BRANCH_NAME} || $DOCKER_CMD pull ${FULL_IMAGE_NAME}:latest
             
             # Запускаем новый контейнер
-            docker run -d \
+            $DOCKER_CMD run -d \
               --name server-time-api \
               --restart unless-stopped \
               -p 9000:9000 \
